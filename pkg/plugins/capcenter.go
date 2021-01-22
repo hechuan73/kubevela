@@ -129,10 +129,12 @@ type RemoteCapabilities []RemoteCapability
 // LoadRepos will load all cap center repos
 // TODO(wonderflow): we can make default(built-in) repo configurable, then we should make default inside the answer
 func LoadRepos() ([]CapCenterConfig, error) {
+	// /USER_HOME/.vela/centers/config.yaml
 	config, err := system.GetRepoConfig()
 	if err != nil {
 		return nil, err
 	}
+	// 解析config.yaml文件
 	data, err := ioutil.ReadFile(filepath.Clean(config))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -149,6 +151,7 @@ func LoadRepos() ([]CapCenterConfig, error) {
 
 // StoreRepos will store cap center repo locally
 func StoreRepos(repos []CapCenterConfig) error {
+	// /USER_HOME/.vela/centers/config.yaml
 	config, err := system.GetRepoConfig()
 	if err != nil {
 		return err
@@ -175,6 +178,8 @@ func ParseAndSyncCapability(data []byte, syncDir string) (types.Capability, erro
 		if err != nil {
 			return types.Capability{}, err
 		}
+		// 将capabilityDefinition转换成capability，并拉取对应的CUE文件，补充capability的一些参数，CUE存储在/centers/.tmp下，capability本身没
+		// 有存储，直接返回的
 		return HandleDefinition(rd.Name, syncDir, rd.Spec.Reference.Name, rd.Annotations, rd.Spec.Extension, types.TypeWorkload, nil)
 	case "TraitDefinition":
 		var td v1alpha2.TraitDefinition
@@ -230,6 +235,7 @@ func (g *GithubCenter) SyncCapabilityFromCenter() error {
 			continue
 		}
 		total++
+		// 拉取CUE文件，存储在/centers/.tmp下
 		fileContent, _, _, err := g.client.Repositories.GetContents(g.ctx, g.cfg.Owner, g.cfg.Repo, *addon.Path, &github.RepositoryContentGetOptions{Ref: g.cfg.Ref})
 		if err != nil {
 			return err
@@ -241,11 +247,13 @@ func (g *GithubCenter) SyncCapabilityFromCenter() error {
 				return fmt.Errorf("decode github content %s err %w", *fileContent.Path, err)
 			}
 		}
+		// 解析.tmp目录下的CUE文件，以获取WorkloadDefinition、TraitDefinition、ScopeDefinition
 		tmp, err := ParseAndSyncCapability(data, filepath.Join(dir, ".tmp"))
 		if err != nil {
 			fmt.Printf("parse definition of %s err %v\n", *fileContent.Name, err)
 			continue
 		}
+		// 存储到本地 /USER_HOME/.vela/centers/centerName/XXXDefinition.yaml
 		//nolint:gosec
 		err = ioutil.WriteFile(filepath.Join(repoDir, tmp.CrdName+".yaml"), data, 0644)
 		if err != nil {

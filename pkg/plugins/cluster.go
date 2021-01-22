@@ -172,6 +172,7 @@ func HandleTemplate(in *runtime.RawExtension, name, syncDir string) (types.Capab
 
 	var cueTemplate string
 	if tmp.CueTemplateURI != "" {
+		// 拉取CUE定义的资源文件
 		b, err := common.HTTPGet(context.Background(), tmp.CueTemplateURI)
 		if err != nil {
 			return types.Capability{}, err
@@ -185,6 +186,7 @@ func HandleTemplate(in *runtime.RawExtension, name, syncDir string) (types.Capab
 		cueTemplate = tmp.CueTemplate
 	}
 	_, _ = system.CreateIfNotExist(syncDir)
+	// 创建CUE文件，存储在/USER_HOME/.vela/centers/repoName/.tmp/下
 	filePath := filepath.Join(syncDir, name+".cue")
 	//nolint:gosec
 	err = ioutil.WriteFile(filePath, []byte(cueTemplate), 0644)

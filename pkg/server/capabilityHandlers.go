@@ -15,6 +15,8 @@ func (s *APIServer) AddCapabilityCenter(c *gin.Context) {
 		util.HandleError(c, util.StatusInternalServerError, "the add capability center request body is invalid")
 		return
 	}
+	// 添加repoConfig到 /USER_HOME/.vela/centers/config.yaml中，并同步更新每一个repo，将CRDDefinition存储到
+	// /USER_HOME/.vela/centers/centerName/下
 	if err := serverlib.AddCapabilityCenter(body.Name, body.Address, body.Token); err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err.Error())
 		return
@@ -24,6 +26,7 @@ func (s *APIServer) AddCapabilityCenter(c *gin.Context) {
 
 // ListCapabilityCenters list all added capability centers
 func (s *APIServer) ListCapabilityCenters(c *gin.Context) {
+	// 解析/USER_HOME/.vela/centers/config.yaml，返回centers
 	capabilityCenterList, err := serverlib.ListCapabilityCenters()
 	if err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err.Error())

@@ -20,6 +20,7 @@ type Storage struct {
 	driver.Driver
 }
 
+// 两种存储的场景？？？
 // NewStorage form driver type
 func NewStorage(driverName string) *Storage {
 	// TODO remove driverName param ,should use environment get it
@@ -28,7 +29,7 @@ func NewStorage(driverName string) *Storage {
 	// TODO mutli implement Storage
 	case driver.ConfigMapDriverName:
 		return &Storage{driver.NewConfigMapStorage()}
-	case driver.LocalDriverName:
+	case driver.LocalDriverName: // VELA_HOME/ENV_NAME/APP_NAME
 		return &Storage{driver.NewLocalStorage()}
 	default:
 		return &Storage{driver.NewLocalStorage()}

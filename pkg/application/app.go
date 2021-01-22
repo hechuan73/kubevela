@@ -104,12 +104,14 @@ func GetServiceConfig(app *driver.Application, componentName string) (string, ma
 
 // GetWorkload will get workload type and it's configuration
 func GetWorkload(app *driver.Application, componentName string) (string, map[string]interface{}) {
+	// 获取svcType（如webservice等）以及config（包含workload和trait等）
 	svcType, config := GetServiceConfig(app, componentName)
 	if svcType == "" {
 		return "", make(map[string]interface{})
 	}
 	workloadData := make(map[string]interface{})
 	for k, v := range config {
+		// 过滤掉trait
 		if app.Tm.IsTrait(k) {
 			continue
 		}
@@ -137,10 +139,12 @@ func GetTraits(app *driver.Application, componentName string) (map[string]map[st
 
 // GetTraitsByType will get trait configuration with specified component and trait type, we assume one type of trait can only attach to a component once.
 func GetTraitsByType(app *driver.Application, componentName, traitType string) (map[string]interface{}, error) {
+	// 取service，这里的component和workload感觉有点混用？？？
 	service, ok := app.Services[componentName]
 	if !ok {
 		return nil, fmt.Errorf("service name (%s) doesn't exist", componentName)
 	}
+	// traitType和traitName感觉也有点混用？？？
 	t, ok := service[traitType]
 	if !ok {
 		return make(map[string]interface{}), nil

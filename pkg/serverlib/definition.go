@@ -64,12 +64,14 @@ func GetDefinition(name string) ([]byte, error) {
 
 // generateOpenAPISchemaFromCapabilityParameter returns the parameter of a definition in cue.Value format
 func generateOpenAPISchemaFromCapabilityParameter(name string) ([]byte, error) {
+	// /USER_HOME/.vela/capabilities/
 	dir, err := system.GetCapabilityDir()
 	if err != nil {
 		return nil, err
 	}
 
 	definitionCueName := fmt.Sprintf("%s.cue", name)
+	// /USER_HOME/.vela/capabilities/openapi/
 	schemaDir := filepath.Join(dir, OpenAPISchemaDir)
 	if err = prepareParameterCue(dir, definitionCueName, schemaDir); err != nil {
 		return nil, err
@@ -90,7 +92,7 @@ func prepareParameterCue(fileDir, fileName string, targetSchemaDir string) error
 			return err
 		}
 	}
-
+	// /USER_HOME/.vela/capabilities/fileName
 	cueFile := filepath.Join(fileDir, fileName)
 	f, err := os.Open(filepath.Clean(cueFile))
 	if err != nil {
@@ -98,6 +100,7 @@ func prepareParameterCue(fileDir, fileName string, targetSchemaDir string) error
 	}
 	//nolint
 	defer f.Close()
+	// /USER_HOME/.vela/capabilities/openapi/fileName
 	schemaFile := filepath.Join(targetSchemaDir, fileName)
 	_, err = os.Stat(schemaFile)
 	if err == nil {

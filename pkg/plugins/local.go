@@ -43,6 +43,7 @@ func LoadAllInstalledCapability() ([]types.Capability, error) {
 
 // LoadInstalledCapabilityWithType will load cap list by type
 func LoadInstalledCapabilityWithType(capT types.CapType) ([]types.Capability, error) {
+	// dir = /USER_HOME/.vela/capabilities/
 	dir, err := system.GetCapabilityDir()
 	if err != nil {
 		return nil, err
@@ -52,6 +53,7 @@ func LoadInstalledCapabilityWithType(capT types.CapType) ([]types.Capability, er
 
 // GetInstalledCapabilityWithCapName will get cap by alias
 func GetInstalledCapabilityWithCapName(capT types.CapType, capName string) (types.Capability, error) {
+	// dir = /USER_HOME/.vela/capabilities/
 	dir, err := system.GetCapabilityDir()
 	if err != nil {
 		return types.Capability{}, err
@@ -67,6 +69,7 @@ func loadInstalledCapabilityWithType(dir string, capT types.CapType) ([]types.Ca
 
 func loadInstalledCapabilityWithCapName(dir string, capT types.CapType, capName string) (types.Capability, error) {
 	var cap types.Capability
+	// /workload /trait /scope
 	dir = GetSubDir(dir, capT)
 	capList, err := loadInstalledCapability(dir, capName)
 	if err != nil {
@@ -74,6 +77,7 @@ func loadInstalledCapabilityWithCapName(dir string, capT types.CapType, capName 
 	} else if len(capList) != 1 {
 		return cap, fmt.Errorf("could not get installed capability by %s", capName)
 	}
+	// 根据name取list中的第一个元素
 	return capList[0], nil
 }
 
@@ -87,12 +91,15 @@ func loadInstalledCapability(dir string, name string) ([]types.Capability, error
 		return nil, err
 	}
 	for _, f := range files {
+		// 过滤目录
 		if f.IsDir() {
 			continue
 		}
+		// 过滤CUE文件
 		if strings.HasSuffix(f.Name(), ".cue") {
 			continue
 		}
+		// 读取文件
 		data, err := ioutil.ReadFile(filepath.Clean(filepath.Join(dir, f.Name())))
 		if err != nil {
 			fmt.Printf("read file %s err %v\n", f.Name(), err)
@@ -113,11 +120,13 @@ func loadInstalledCapability(dir string, name string) ([]types.Capability, error
 			}
 			continue
 		}
+		// 如果name为空，则是按照类型加载所有
 		tmps = append(tmps, tmp)
 	}
 	return tmps, nil
 }
 
+// capability下有三个子目录，分别存储 workload、trait和scope
 // GetSubDir will get dir for capability
 func GetSubDir(dir string, capT types.CapType) string {
 	switch capT {
@@ -199,17 +208,21 @@ func LoadCapabilityFromSyncedCenter(dir string) ([]types.Capability, error) {
 		return nil, err
 	}
 	for _, f := range files {
+		// 过滤目录
 		if f.IsDir() {
 			continue
 		}
+		// 过滤CUE文件
 		if strings.HasSuffix(f.Name(), ".cue") {
 			continue
 		}
+		// 读取capabilityDefinition，/USER_HOME/.vela/centers/repoName/capabilityName
 		data, err := ioutil.ReadFile(filepath.Clean(filepath.Join(dir, f.Name())))
 		if err != nil {
 			fmt.Printf("read file %s err %v\n", f.Name(), err)
 			continue
 		}
+		// 解析capabilityDefinition，拉取CUE文件，一起转化成Capability。其中CUE文件存在.tmp下，Capability本身没有存储
 		tmp, err := ParseAndSyncCapability(data, filepath.Join(dir, ".tmp"))
 		if err != nil {
 			fmt.Printf("get definition of %s err %v\n", f.Name(), err)

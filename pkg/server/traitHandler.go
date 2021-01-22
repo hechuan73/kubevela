@@ -45,7 +45,7 @@ func (s *APIServer) GetTrait(c *gin.Context) {
 	var workloadType string
 	var capability types.Capability
 	var err error
-
+	// 通过traitName获取Trait，此处的workloadType为""
 	if capability, err = serverlib.GetTraitDefinition(&workloadType, traitType); err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err)
 		return
@@ -74,6 +74,7 @@ func (s *APIServer) DetachTrait(c *gin.Context) {
 
 	var staging = false
 	var err error
+	// staging是标示啥的？？？
 	if stagingStr := c.Param("staging"); stagingStr != "" {
 		if staging, err = strconv.ParseBool(stagingStr); err != nil {
 			util.HandleError(c, util.StatusInternalServerError, err.Error())
@@ -90,7 +91,7 @@ func (s *APIServer) DetachTrait(c *gin.Context) {
 
 // DoAttachTrait executes attaching trait operation
 func (s *APIServer) DoAttachTrait(c context.Context, body apis.TraitBody) (string, error) {
-	// Prepare
+	// Prepare // 这里prepare的是什么？？
 	var appObj *driver.Application
 	fs := pflag.NewFlagSet("trait", pflag.ContinueOnError)
 	for _, f := range body.Flags {
@@ -105,21 +106,23 @@ func (s *APIServer) DoAttachTrait(c context.Context, body apis.TraitBody) (strin
 		}
 	}
 	traitAlias := body.Name
+	// 获取trait
 	template, err := plugins.GetInstalledCapabilityWithCapName(types.TypeTrait, traitAlias)
 	if err != nil {
 		return "", err
 	}
-	// Run step
+	// Run step 获取env
 	env, err := env2.GetEnvByName(body.EnvName)
 	if err != nil {
 		return "", err
 	}
-
+	// 将template（trait）apply到AppFile中去，并刷新本地存储
 	appObj, err = serverlib.AddOrUpdateTrait(env, body.AppName, body.ComponentName, fs, template)
 	if err != nil {
 		return "", err
 	}
 	io := util2.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
+	// 将更新traits信息后的AppFile构建成OAM Application，并调用k8s API同步更新
 	return serverlib.TraitOperationRun(c, s.KubeClient, env, appObj, staging, io)
 }
 
@@ -130,6 +133,7 @@ func (s *APIServer) DoDetachTrait(c context.Context, envName string, traitType s
 	if appName == "" {
 		appName = componentName
 	}
+	// 将trait从AppFile中删去，并刷新本地存储
 	if appObj, err = serverlib.PrepareDetachTrait(envName, traitType, componentName, appName); err != nil {
 		return "", err
 	}
@@ -139,5 +143,6 @@ func (s *APIServer) DoDetachTrait(c context.Context, envName string, traitType s
 		return "", err
 	}
 	io := util2.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
+	// 将更新traits信息后的AppFile构建成OAM Application，并调用k8s API同步更新
 	return serverlib.TraitOperationRun(c, s.KubeClient, env, appObj, staging, io)
 }

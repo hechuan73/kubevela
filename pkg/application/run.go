@@ -18,6 +18,7 @@ import (
 
 // BuildRun will build application and deploy from Appfile
 func BuildRun(ctx context.Context, app *driver.Application, client client.Client, env *types.EnvMeta, io cmdutil.IOStreams) error {
+	// 将AppFile构建成OAM Application
 	o, scopes, err := app.BuildOAMApplication(env, io, app.Tm, true)
 	if err != nil {
 		return err

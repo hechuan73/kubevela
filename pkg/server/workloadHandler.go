@@ -16,8 +16,10 @@ import (
 )
 
 // CreateWorkload creates a workload
+// 这里其实是create AppFile下的多个service项，每一个service项代表一种workload
 func (s *APIServer) CreateWorkload(c *gin.Context) {
 	var body apis.WorkloadRunBody
+	// 验证输出参数的json格式
 	if err := c.ShouldBindJSON(&body); err != nil {
 		util.HandleError(c, util.InvalidArgument, "the workload run request body is invalid")
 		return
@@ -27,7 +29,7 @@ func (s *APIServer) CreateWorkload(c *gin.Context) {
 		fs.String(f.Name, f.Value, "")
 	}
 	envName := body.EnvName
-
+	// 组装一个application的AppFile
 	appObj, err := serverlib.BaseComplete(envName, body.WorkloadName, body.AppName, fs, body.WorkloadType)
 	if err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err.Error())
@@ -39,11 +41,13 @@ func (s *APIServer) CreateWorkload(c *gin.Context) {
 		return
 	}
 	io := cmdutil.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
+	// 创建一个application
 	msg, err := serverlib.BaseRun(body.Staging, appObj, s.KubeClient, env, io)
 	if err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err.Error())
 		return
 	}
+	// 关联application对应的traits
 	if len(body.Traits) == 0 {
 		util.AssembleResponse(c, msg, err)
 		return
@@ -70,6 +74,7 @@ func (s *APIServer) GetWorkload(c *gin.Context) {
 	var capability types.Capability
 	var err error
 
+	// 在.vela/capabilities/workloads/下读取已安装的workloads
 	if capability, err = plugins.GetInstalledCapabilityWithCapName(types.TypeWorkload, workloadType); err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err)
 		return

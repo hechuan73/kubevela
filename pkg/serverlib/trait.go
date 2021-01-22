@@ -35,14 +35,18 @@ func ListTraitDefinitions(workloadName *string) ([]types.Capability, error) {
 // GetTraitDefinition will get trait capability with applyTo converted
 func GetTraitDefinition(workloadName *string, traitType string) (types.Capability, error) {
 	var traitDef types.Capability
+	// 获取trait
 	traitCap, err := plugins.GetInstalledCapabilityWithCapName(types.TypeTrait, traitType)
 	if err != nil {
 		return traitDef, err
 	}
+	// 加载所有workload
 	workloadsCap, err := plugins.LoadInstalledCapabilityWithType(types.TypeWorkload)
 	if err != nil {
 		return traitDef, err
 	}
+	// 通过workloadName提取那些需要apply的trait。如果workloadName为空，则从trait角度，返回所有trait
+	// 这里传进去的trait实质上只有一个，其实就是去验证该trait是否会被apply到workload上
 	traitList := convertAllAppliyToList([]types.Capability{traitCap}, workloadsCap, workloadName)
 	if len(traitList) != 1 {
 		return traitDef, fmt.Errorf("could not get installed capability by %s", traitType)
@@ -54,6 +58,7 @@ func GetTraitDefinition(workloadName *string, traitType string) (types.Capabilit
 func convertAllAppliyToList(traits []types.Capability, workloads []types.Capability, workloadName *string) []types.Capability {
 	var traitList []types.Capability
 	for _, t := range traits {
+		// 检查哪些workload是会被这些trait apply的，将workload 名称提取出来
 		convertedApplyTo := ConvertApplyTo(t.AppliesTo, workloads)
 		if *workloadName != "" {
 			if !in(convertedApplyTo, *workloadName) {
@@ -84,6 +89,8 @@ func ConvertApplyTo(applyTo []string, workloads []types.Capability) []string {
 
 func check(applyto string, workloads []types.Capability) (string, bool) {
 	for _, v := range workloads {
+		// 如果trait的apiGroup/Version.Kind与workload的名称或者crdName相同，则可认为该trait是apply到该workload上的
+		// 此处workload与component对等
 		if Parse(applyto) == v.CrdName || Parse(applyto) == v.Name {
 			return v.Name, true
 		}
@@ -119,6 +126,7 @@ func Parse(applyTo string) string {
 func ValidateAndMutateForCore(traitType, workloadName string, flags *pflag.FlagSet, env *types.EnvMeta) error {
 	switch traitType {
 	case "route":
+		// 验证domain
 		domain, _ := flags.GetString("domain")
 		if domain == "" {
 			if env.Domain == "" {
@@ -134,6 +142,7 @@ func ValidateAndMutateForCore(traitType, workloadName string, flags *pflag.FlagS
 				return fmt.Errorf("set flag for vela-core trait('route') err %w, please make sure your template is right", err)
 			}
 		}
+		// 验证issuer
 		issuer, _ := flags.GetString("issuer")
 		if issuer == "" && env.Issuer != "" {
 			if err := flags.Set("issuer", env.Issuer); err != nil {
@@ -148,6 +157,7 @@ func ValidateAndMutateForCore(traitType, workloadName string, flags *pflag.FlagS
 
 // AddOrUpdateTrait attach trait to workload
 func AddOrUpdateTrait(env *types.EnvMeta, appName string, componentName string, flagSet *pflag.FlagSet, template types.Capability) (*driver.Application, error) {
+	// 验证trait、workload信息，目前只有route trait
 	err := ValidateAndMutateForCore(template.Name, componentName, flagSet, env)
 	if err != nil {
 		return nil, err
@@ -155,15 +165,18 @@ func AddOrUpdateTrait(env *types.EnvMeta, appName string, componentName string, 
 	if appName == "" {
 		appName = componentName
 	}
+	// 获取application -> AppFile
 	app, err := application.Load(env.Name, appName)
 	if err != nil {
 		return app, err
 	}
 	traitAlias := template.Name
+	// 把AppFile中定义的trait数据取出来
 	traitData, err := application.GetTraitsByType(app, componentName, traitAlias)
 	if err != nil {
 		return app, err
 	}
+	// 把capability中已配置安装的trait参数，apply到AppFile中的去
 	for _, v := range template.Parameters {
 		name := v.Name
 		if v.Alias != "" {
@@ -191,6 +204,7 @@ func AddOrUpdateTrait(env *types.EnvMeta, appName string, componentName string, 
 	if err = application.SetTrait(app, componentName, traitAlias, traitData); err != nil {
 		return app, err
 	}
+	// 刷新本地的application存储
 	return app, application.Save(app, env.Name)
 }
 
@@ -200,6 +214,7 @@ func TraitOperationRun(ctx context.Context, c client.Client, env *types.EnvMeta,
 	if staging {
 		return "Staging saved", nil
 	}
+	// 将AppFile构建成OAM Application，并调用k8s API同步更新
 	err := application.BuildRun(ctx, appObj, c, env, io)
 	if err != nil {
 		return "", err
@@ -214,12 +229,14 @@ func PrepareDetachTrait(envName string, traitType string, componentName string, 
 	if appName == "" {
 		appName = componentName
 	}
+	// 通过本地的AppFile，加载出Application
 	if appObj, err = application.Load(envName, appName); err != nil {
 		return appObj, err
 	}
-
+	// 去掉待删除trait信息
 	if err = application.RemoveTrait(appObj, componentName, traitType); err != nil {
 		return appObj, err
 	}
+	// 刷新本地存储
 	return appObj, application.Save(appObj, envName)
 }

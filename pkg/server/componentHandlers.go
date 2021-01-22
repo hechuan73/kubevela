@@ -23,6 +23,7 @@ func (s *APIServer) GetComponent(c *gin.Context) {
 	applicationName := c.Param("appName")
 	componentName := c.Param("compName")
 	ctx := util.GetContext(c)
+	// 通过k8s API获取applicationName对应的ApplicationConfiguration，过滤筛选其中对应的component
 	componentMeta, err := serverlib.RetrieveComponent(ctx, s.KubeClient, applicationName, componentName, namespace)
 	if err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err)
@@ -47,7 +48,9 @@ func (s *APIServer) DeleteComponent(c *gin.Context) {
 		Env:      envMeta,
 		AppName:  appName,
 		CompName: componentName}
-
+	// 删本地AppFile中Services下的某个service
+	// 删k8s中OAM AppConfiguration中的component
+	// 删k8s中实际部署的Component
 	message, err := o.DeleteComponent(
 		cmdutil.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr})
 	util.AssembleResponse(c, message, err)

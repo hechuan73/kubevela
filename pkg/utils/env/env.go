@@ -33,6 +33,7 @@ func GetEnvDirByName(name string) string {
 
 // GetEnvByName will get env info by name
 func GetEnvByName(name string) (*types.EnvMeta, error) {
+	// /USER_HOME/.vela/envs/env/config.json
 	data, err := ioutil.ReadFile(filepath.Join(GetEnvDirByName(name), system.EnvConfigName))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -40,6 +41,7 @@ func GetEnvByName(name string) (*types.EnvMeta, error) {
 		}
 		return nil, err
 	}
+	// 反序列化
 	var meta types.EnvMeta
 	if err = json.Unmarshal(data, &meta); err != nil {
 		return nil, err
@@ -54,7 +56,7 @@ func CreateOrUpdateEnv(ctx context.Context, c client.Client, envName string, env
 
 	createOrUpdated := "created"
 	old, err := GetEnvByName(envName)
-	if err == nil {
+	if err == nil { // update env
 		createOrUpdated = "updated"
 		if envArgs.Domain == "" {
 			envArgs.Domain = old.Domain
@@ -69,13 +71,13 @@ func CreateOrUpdateEnv(ctx context.Context, c client.Client, envName string, env
 			envArgs.Namespace = old.Namespace
 		}
 	}
-
+	// 好像重复设置了？？？
 	if envArgs.Namespace == "" {
 		envArgs.Namespace = "default"
 	}
 
 	var message = ""
-	// Create Namespace
+	// Create Namespace with k8s API
 	if err := c.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: envArgs.Namespace}}); err != nil && !apierrors.IsAlreadyExists(err) {
 		return message, err
 	}
@@ -83,6 +85,7 @@ func CreateOrUpdateEnv(ctx context.Context, c client.Client, envName string, env
 	// Create Issuer For SSL if both email and domain are all set.
 	if envArgs.Email != "" && envArgs.Domain != "" {
 		issuerName := "oam-env-" + envArgs.Name
+		// 调用k8s API创建Issuer
 		if err := c.Create(ctx, &certmanager.Issuer{
 			ObjectMeta: metav1.ObjectMeta{Name: issuerName, Namespace: envArgs.Namespace},
 			Spec: certmanager.IssuerSpec{
@@ -104,9 +107,10 @@ func CreateOrUpdateEnv(ctx context.Context, c client.Client, envName string, env
 		}); err != nil && !apierrors.IsAlreadyExists(err) {
 			return message, err
 		}
+		// 更新Issuer信息
 		envArgs.Issuer = issuerName
 	}
-
+	// 序列化
 	data, err := json.Marshal(envArgs)
 	if err != nil {
 		return message, err
@@ -115,14 +119,18 @@ func CreateOrUpdateEnv(ctx context.Context, c client.Client, envName string, env
 	if err != nil {
 		return message, err
 	}
+	// /USER_HOME/.vela/envs/envName
 	subEnvDir := filepath.Join(envdir, envName)
+	// 创建目录
 	if _, err = system.CreateIfNotExist(subEnvDir); err != nil {
 		return message, err
 	}
+	// 创建/USER_HOME/.vela/envs/envName/config.json
 	// nolint:gosec
 	if err = ioutil.WriteFile(filepath.Join(subEnvDir, system.EnvConfigName), data, 0644); err != nil {
 		return message, err
 	}
+	// /USER_HOME/.vela/curenv
 	curEnvPath, err := system.GetCurrentEnvPath()
 	if err != nil {
 		return message, err
@@ -142,6 +150,7 @@ func CreateOrUpdateEnv(ctx context.Context, c client.Client, envName string, env
 // CreateEnv will only create. If env already exists, return error
 func CreateEnv(ctx context.Context, c client.Client, envName string, envArgs *types.EnvMeta) (string, error) {
 	_, err := GetEnvByName(envName)
+	// 如果已经存在env，即报错
 	if err == nil {
 		message := fmt.Sprintf("Env %s already exist", envName)
 		return message, errors.New(message)
@@ -156,6 +165,7 @@ func UpdateEnv(ctx context.Context, c client.Client, envName string, namespace s
 	if err != nil {
 		return err.Error(), err
 	}
+	// 创建namespace
 	if err := c.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: envMeta.Namespace}}); err != nil && !apierrors.IsAlreadyExists(err) {
 		return message, err
 	}
@@ -169,6 +179,7 @@ func UpdateEnv(ctx context.Context, c client.Client, envName string, namespace s
 		return message, err
 	}
 	subEnvDir := filepath.Join(envdir, envName)
+	// 更新envName/config.json
 	// nolint:gosec
 	if err = ioutil.WriteFile(filepath.Join(subEnvDir, system.EnvConfigName), data, 0644); err != nil {
 		return message, err

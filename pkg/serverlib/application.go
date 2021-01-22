@@ -70,6 +70,7 @@ type DeleteOptions struct {
 // ListApplications lists all applications
 func ListApplications(ctx context.Context, c client.Client, opt Option) ([]apis.ApplicationMeta, error) {
 	var applicationMetaList applicationMetaList
+	// 查询对应namespace下所有的OAM APPConfig
 	appConfigList, err := ListApplicationConfigurations(ctx, c, opt)
 	if err != nil {
 		return nil, err
@@ -80,6 +81,7 @@ func ListApplications(ctx context.Context, c client.Client, opt Option) ([]apis.
 		if a.GetDeletionGracePeriodSeconds() != nil {
 			continue
 		}
+		// 查询每一个application的运行时状态信息
 		applicationMeta, err := RetrieveApplicationStatusByName(ctx, c, a.Name, a.Namespace)
 		if err != nil {
 			return applicationMetaList, nil
@@ -87,6 +89,7 @@ func ListApplications(ctx context.Context, c client.Client, opt Option) ([]apis.
 		applicationMeta.Components = nil
 		applicationMetaList = append(applicationMetaList, applicationMeta)
 	}
+	// 按名称排序输出
 	sort.Stable(applicationMetaList)
 	return applicationMetaList, nil
 }
@@ -143,6 +146,7 @@ func ListComponents(ctx context.Context, c client.Client, opt Option) ([]apis.Co
 func RetrieveApplicationStatusByName(ctx context.Context, c client.Client, applicationName string, namespace string) (apis.ApplicationMeta, error) {
 	var applicationMeta apis.ApplicationMeta
 	var appConfig corev1alpha2.ApplicationConfiguration
+	// 通过K8S client查OAM ApplicationConfiguration的信息
 	if err := c.Get(ctx, client.ObjectKey{Name: applicationName, Namespace: namespace}, &appConfig); err != nil {
 		return applicationMeta, err
 	}
@@ -154,7 +158,7 @@ func RetrieveApplicationStatusByName(ctx context.Context, c client.Client, appli
 	applicationMeta.Name = appConfig.Name
 	applicationMeta.Status = status
 	applicationMeta.CreatedTime = appConfig.CreationTimestamp.Format(time.RFC3339)
-
+	// 遍历ApplicationConfiguration中的 components
 	for _, com := range appConfig.Spec.Components {
 		componentName := com.ComponentName
 		component, err := cmdutil.GetComponent(ctx, c, componentName, namespace)
@@ -168,6 +172,7 @@ func RetrieveApplicationStatusByName(ctx context.Context, c client.Client, appli
 			Workload: component.Spec.Workload,
 			Traits:   com.Traits,
 		})
+		// 这个status被设置了多次，好像没有必要？？？
 		applicationMeta.Status = status
 
 	}
@@ -176,6 +181,7 @@ func RetrieveApplicationStatusByName(ctx context.Context, c client.Client, appli
 
 // DeleteApp will delete app including server side
 func (o *DeleteOptions) DeleteApp() (string, error) {
+	// 这里delete掉的是本地存储的文件"envName/applications/appName.yaml"，即删除AppFile
 	if err := application.Delete(o.Env.Name, o.AppName); err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
@@ -188,7 +194,7 @@ func (o *DeleteOptions) DeleteApp() (string, error) {
 		}
 		return "", fmt.Errorf("delete appconfig err %w", err)
 	}
-
+	// 这里delete掉的是k8s中的数据，CRD、Deployment等
 	err = o.Client.Delete(ctx, app)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return "", fmt.Errorf("delete application err %w", err)
@@ -202,6 +208,7 @@ func (o *DeleteOptions) DeleteComponent(io cmdutil.IOStreams) (string, error) {
 	var app *driver.Application
 	var err error
 	if o.AppName != "" {
+		// /USER_HOME/.vela/envs/envName/applications/appName.yaml -> Application
 		app, err = application.Load(o.Env.Name, o.AppName)
 	} else {
 		app, err = application.MatchAppByComp(o.Env.Name, o.CompName)
@@ -215,6 +222,7 @@ func (o *DeleteOptions) DeleteComponent(io cmdutil.IOStreams) (string, error) {
 	}
 
 	// Remove component from local appfile
+	// 删的是services下的某个service
 	if err := application.RemoveComponent(app, o.CompName); err != nil {
 		return "", err
 	}

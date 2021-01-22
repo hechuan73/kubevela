@@ -58,10 +58,12 @@ func LoadIfExist(envName string, workloadName string, appGroup string) (*driver.
 
 // BaseComplete will construct an Application from cli parameters.
 func BaseComplete(envName string, workloadName string, appName string, flagSet *pflag.FlagSet, workloadType string) (*driver.Application, error) {
+	// 本地查询该Application是否存在，如果不存在则new一个空的
 	app, err := LoadIfExist(envName, workloadName, appName)
 	if err != nil {
 		return nil, err
 	}
+	// 获取svcType（如webservice等）以及workload
 	tp, workloadData := application.GetWorkload(app, workloadName)
 	if tp == "" {
 		if workloadType == "" {
@@ -70,11 +72,13 @@ func BaseComplete(envName string, workloadName string, appName string, flagSet *
 		// Not exist
 		tp = workloadType
 	}
+	// 加载capability
 	template, err := plugins.LoadCapabilityByName(tp)
 	if err != nil {
 		return nil, err
 	}
 
+	// 验证template中定义的所有参数及值类型
 	for _, v := range template.Parameters {
 		name := v.Name
 		if v.Alias != "" {
@@ -127,6 +131,7 @@ func BaseComplete(envName string, workloadName string, appName string, flagSet *
 			return nil, fmt.Errorf("get flag(s) \"%s\" err %w", v.Name, err)
 		}
 	}
+	// 这里workloadName对应AppFile中的每一项serviceName
 	if err = application.SetWorkload(app, workloadName, tp, workloadData); err != nil {
 		return app, err
 	}

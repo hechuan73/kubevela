@@ -124,6 +124,7 @@ func (app *AppFile) ExecuteAppfileTasks(io cmdutil.IOStreams) error {
 
 // BuildOAMApplication renders Appfile into Application, Scopes and other K8s Resources.
 func (app *AppFile) BuildOAMApplication(env *types.EnvMeta, io cmdutil.IOStreams, tm template.Manager, silence bool) (*v1alpha2.Application, []oam.Object, error) {
+	// 执行AppFile初始化任务等，如build image
 	if err := app.ExecuteAppfileTasks(io); err != nil {
 		if strings.Contains(err.Error(), "'image' : not found") {
 			return nil, nil, ErrImageNotDefined
@@ -136,6 +137,7 @@ func (app *AppFile) BuildOAMApplication(env *types.EnvMeta, io cmdutil.IOStreams
 	servApp.SetNamespace(env.Namespace)
 	servApp.SetName(app.Name)
 	servApp.Spec.Components = []v1alpha2.ApplicationComponent{}
+	// 构建AppFile services下的所有service成OAM object
 	for serviceName, svc := range app.GetServices() {
 		if !silence {
 			io.Infof("\nRendering configs for service (%s)...\n", serviceName)

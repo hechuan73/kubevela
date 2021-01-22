@@ -46,6 +46,7 @@ func GetCapCenterDir() (string, error) {
 
 // GetRepoConfig return repo config
 func GetRepoConfig() (string, error) {
+	// /USER_HOME/.vela/centers
 	home, err := GetCapCenterDir()
 	if err != nil {
 		return "", err

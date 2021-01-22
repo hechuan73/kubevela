@@ -10,6 +10,7 @@ import (
 // GetDefinition gets OpenAPI schema from Cue section of a WorkloadDefinition/TraitDefinition
 func (s *APIServer) GetDefinition(c *gin.Context) {
 	definitionName := c.Param("name")
+	// 获取/capabilities下的CUE文件，以解析WorkloadDefinition/TraitDefinition
 	parameter, err := serverlib.GetDefinition(definitionName)
 	if err != nil {
 		util.HandleError(c, util.StatusInternalServerError, err)

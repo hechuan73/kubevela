@@ -90,10 +90,12 @@ func (l *Local) Delete(envName, appName string) error {
 
 // Get application from local storage
 func (l *Local) Get(envName, appName string) (*Application, error) {
+	// /USER_HOME/.vela/envs/envName/applications/
 	appDir, err := getApplicationDir(envName)
 	if err != nil {
 		return nil, err
 	}
+	// /USER_HOME/.vela/envs/envName/applications/appName.yaml
 	app, err := loadFromFile(filepath.Join(appDir, appName+".yaml"))
 
 	if err != nil {
@@ -130,6 +132,7 @@ func loadFromFile(fileName string) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 一个application.yaml就对应一个AppFile
 	app := &Application{AppFile: f, Tm: tm}
 	return app, nil
 }
